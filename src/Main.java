@@ -1,6 +1,7 @@
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class Main {
 
@@ -18,32 +19,20 @@ public class Main {
         int coreCount = Runtime.getRuntime().availableProcessors();
         Thread[] threads = new Thread[coreCount];
 
-        List<String> fileList = new ArrayList<>();
+        Queue<String> fileQueue = new ConcurrentLinkedQueue<>();
 
         try {
-            collectFiles(directoryPath, fileList);
-
-            List<List<String>> filesPerThread = new ArrayList<>();
+            collectFiles(directoryPath, fileQueue);
 
             for (int i = 0; i < coreCount; i++) {
-                filesPerThread.add(new ArrayList<>());
-            }
-
-            for (int i = 0; i < fileList.size(); i++) {
-                filesPerThread.get(i % coreCount).add(fileList.get(i));
-            }
-
-            for (int i = 0; i < coreCount; i++) {
-                List<String> filesToProcess = filesPerThread.get(i);
-
-                if (!filesToProcess.isEmpty()) {
                     threads[i] = new Thread(() -> {
-                        for (String file : filesToProcess) {
-                            searchInFile(file, searchWord);
+                        String filePath;
+
+                        while ((filePath = fileQueue.poll()) != null) {
+                            searchInFile(filePath, searchWord);
                         }
                     });
                     threads[i].start();
-                }
             }
 
             for (int i = 0; i < coreCount; i++) {
@@ -78,7 +67,7 @@ public class Main {
         }
     }
 
-    private static void collectFiles(String directoryPath, List<String> fileList) {
+    private static void collectFiles(String directoryPath, Queue<String> fileQueue) {
         File[] files = new File(directoryPath).listFiles();
 
         if (files == null) {
@@ -87,9 +76,9 @@ public class Main {
 
         for (File f : files) {
             if (f.isDirectory()) {
-                collectFiles(f.getAbsolutePath(), fileList);
+                collectFiles(f.getAbsolutePath(), fileQueue);
             } else {
-                fileList.add(f.getAbsolutePath());
+                fileQueue.add(f.getAbsolutePath());
             }
         }
     }
@@ -122,10 +111,7 @@ public class Main {
     }
 
     private static void generateRandomFile(String fileName, long fileSize, Random random) throws IOException {
-        try (BufferedWriter
-
-
-                     writer = new BufferedWriter(new FileWriter(fileName), BUFFER_SIZE)) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName), BUFFER_SIZE)) {
             char[] buffer = new char[BUFFER_SIZE];
             long bytesWritten = 0;
             int charCount = 0;
